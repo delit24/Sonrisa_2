@@ -1,0 +1,75 @@
+.user-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #0f172a;
+}
+
+.user-toolbar {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #f1f5f9;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  gap: 0.5rem;
+}
+
+.toolbar-icon {
+  color: #818cf8;
+  margin-right: 0.25rem;
+}
+
+.toolbar-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.user-name {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  margin-right: 0.5rem;
+}
+
+.tab-nav {
+  display: flex;
+  background: #1e293b;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  padding: 0 2rem;
+  gap: 0.5rem;
+}
+
+.tab-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.25rem;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: #e2e8f0;
+    background: rgba(99, 102, 241, 0.05);
+  }
+
+  &.active {
+    color: #a5b4fc;
+    border-bottom-color: #6366f1;
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.user-content {
+  flex: 1;
+  padding: 2rem;
+}

@@ -1,0 +1,27 @@
+<div class="admin-layout">
+  <mat-toolbar class="admin-toolbar">
+    <mat-icon class="toolbar-icon">notifications_active</mat-icon>
+    <span class="toolbar-title">Alert System</span>
+    <span class="toolbar-badge">Admin</span>
+    <span class="spacer"></span>
+    <span class="user-name">{{ authService.currentUser()?.fullName }}</span>
+    <button mat-icon-button (click)="logout()" matTooltip="Kijelentkezés" id="admin-logout-btn">
+      <mat-icon>logout</mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <mat-sidenav-container class="admin-content">
+    <mat-sidenav mode="side" opened class="admin-sidenav">
+      <mat-nav-list>
+        <a mat-list-item routerLink="users" routerLinkActive="active" id="admin-nav-users">
+          <mat-icon matListItemIcon>people</mat-icon>
+          <span matListItemTitle>Felhasználók</span>
+        </a>
+      </mat-nav-list>
+    </mat-sidenav>
+
+    <mat-sidenav-content class="admin-main">
+      <router-outlet></router-outlet>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>

@@ -1,0 +1,26 @@
+<div class="user-layout">
+  <mat-toolbar class="user-toolbar">
+    <mat-icon class="toolbar-icon">notifications_active</mat-icon>
+    <span class="toolbar-title">Alert System</span>
+    <span class="spacer"></span>
+    <span class="user-name">{{ authService.currentUser()?.fullName }}</span>
+    <button mat-icon-button (click)="logout()" matTooltip="Kijelentkezés" id="user-logout-btn">
+      <mat-icon>logout</mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <nav class="tab-nav">
+    <a routerLink="alerts" routerLinkActive="active" class="tab-link" id="user-nav-alerts">
+      <mat-icon>tune</mat-icon>
+      Alert Beállítások
+    </a>
+    <a routerLink="channels" routerLinkActive="active" class="tab-link" id="user-nav-channels">
+      <mat-icon>send</mat-icon>
+      Értesítési Csatornák
+    </a>
+  </nav>
+
+  <div class="user-content">
+    <router-outlet></router-outlet>
+  </div>
+</div>

@@ -1,0 +1,71 @@
+@use '@angular/material' as mat;
+
+// Custom dark theme
+$dark-theme: mat.define-theme((
+  color: (
+    theme-type: dark,
+    primary: mat.$violet-palette,
+  ),
+));
+
+html {
+  @include mat.all-component-themes($dark-theme);
+  color-scheme: dark;
+}
+
+// Global styles
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+// Material overrides for dark theme
+.mat-mdc-card {
+  --mdc-elevated-card-container-color: rgba(30, 41, 59, 0.6);
+}
+
+.mat-mdc-table {
+  --mat-table-background-color: transparent;
+}
+
+.mat-mdc-form-field {
+  --mdc-outlined-text-field-outline-color: rgba(99, 102, 241, 0.2);
+  --mdc-outlined-text-field-focus-outline-color: #6366f1;
+  --mdc-outlined-text-field-hover-outline-color: rgba(99, 102, 241, 0.4);
+}
+
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-color: #1e293b;
+  --mdc-snackbar-supporting-text-color: #e2e8f0;
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+// Google Font import
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');

@@ -1,0 +1,108 @@
+<div class="channels-container">
+  <h2>Értesítési Csatornák</h2>
+  <p class="subtitle">Állítsa be, hol szeretne értesítéseket kapni.</p>
+
+  @if (isLoading) {
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  } @else {
+    <div class="channels-grid">
+      <!-- Email Channel -->
+      <mat-card class="channel-card">
+        <div class="channel-header">
+          <div class="channel-icon email-icon">
+            <mat-icon>email</mat-icon>
+          </div>
+          <div class="channel-title">
+            <h3>Email</h3>
+            <span class="channel-status" [class.active]="emailChannel?.isActive">
+              {{ emailChannel ? (emailChannel.isActive ? 'Aktív' : 'Inaktív') : 'Nincs beállítva' }}
+            </span>
+          </div>
+          @if (emailChannel) {
+            <mat-slide-toggle
+              [checked]="emailChannel.isActive"
+              (change)="toggleChannel(emailChannel)"
+              color="primary">
+            </mat-slide-toggle>
+          }
+        </div>
+        <mat-card-content>
+          <form [formGroup]="emailForm" (ngSubmit)="saveEmail()">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Email cím</mat-label>
+              <input matInput formControlName="destination" type="email"
+                     placeholder="user&#64;example.com" id="channel-email-input">
+              @if (emailForm.get('destination')?.hasError('required') && emailForm.get('destination')?.touched) {
+                <mat-error>Email cím megadása kötelező</mat-error>
+              }
+              @if (emailForm.get('destination')?.hasError('email') && emailForm.get('destination')?.touched) {
+                <mat-error>Érvényes email címet adjon meg</mat-error>
+              }
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="submit"
+                    [disabled]="emailForm.invalid || isSavingEmail" id="channel-email-save">
+              @if (isSavingEmail) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                Mentés
+              }
+            </button>
+          </form>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Slack Channel -->
+      <mat-card class="channel-card">
+        <div class="channel-header">
+          <div class="channel-icon slack-icon">
+            <mat-icon>tag</mat-icon>
+          </div>
+          <div class="channel-title">
+            <h3>Slack</h3>
+            <span class="channel-status" [class.active]="slackChannel?.isActive">
+              {{ slackChannel ? (slackChannel.isActive ? 'Aktív' : 'Inaktív') : 'Nincs beállítva' }}
+            </span>
+          </div>
+          @if (slackChannel) {
+            <mat-slide-toggle
+              [checked]="slackChannel.isActive"
+              (change)="toggleChannel(slackChannel)"
+              color="primary">
+            </mat-slide-toggle>
+          }
+        </div>
+        <mat-card-content>
+          <form [formGroup]="slackForm" (ngSubmit)="saveSlack()">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Channel név</mat-label>
+              <input matInput formControlName="destination"
+                     placeholder="#alerts vagy &#64;username" id="channel-slack-input">
+              @if (slackForm.get('destination')?.hasError('required') && slackForm.get('destination')?.touched) {
+                <mat-error>Channel név megadása kötelező</mat-error>
+              }
+              @if (slackForm.get('destination')?.hasError('pattern') && slackForm.get('destination')?.touched) {
+                <mat-error># vagy &#64; karakterrel kell kezdődnie</mat-error>
+              }
+            </mat-form-field>
+
+            <div class="slack-info">
+              <mat-icon>info</mat-icon>
+              <span>A botnak tagnak kell lennie a megadott channelben.</span>
+            </div>
+
+            <button mat-flat-button color="primary" type="submit"
+                    [disabled]="slackForm.invalid || isSavingSlack" id="channel-slack-save">
+              @if (isSavingSlack) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                Mentés
+              }
+            </button>
+          </form>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  }
+</div>

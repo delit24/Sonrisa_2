@@ -1,0 +1,415 @@
+{
+  "name": "alert-dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "events",
+        "returnAll": false,
+        "limit": 50,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "processed",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000002",
+      "name": "Get Unprocessed Events",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000003",
+      "name": "Has Events?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.WEBAPI_BASE_URL }}/api/internal/user-preferences",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Api-Key",
+              "value": "={{ $env.WEBAPI_INTERNAL_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000004",
+      "name": "Get User Preferences",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Eventek és user preferenciák összegyűjtése\nconst events = $('Get Unprocessed Events').all().map(i => i.json);\nconst users = $('Get User Preferences').first().json;\n\nif (!Array.isArray(users) || users.length === 0) {\n  return [];\n}\n\nconst matches = [];\n\nfor (const event of events) {\n  for (const user of users) {\n    if (!user.preferences || !user.channels) continue;\n\n    for (const pref of user.preferences) {\n      // Kategória egyezés ellenőrzés\n      if (pref.category !== event.category) continue;\n\n      // Kulcsszó szűrés (ha van megadva)\n      if (pref.keyword) {\n        const keyword = pref.keyword.toLowerCase();\n        const inSummary = (event.summary || '').toLowerCase().includes(keyword);\n        const inKeywords = Array.isArray(event.keywords)\n          ? event.keywords.some(k => k.toLowerCase().includes(keyword))\n          : false;\n        const inTitle = (event.title || '').toLowerCase().includes(keyword);\n\n        if (!inSummary && !inKeywords && !inTitle) continue;\n      }\n\n      // Match! Minden aktív csatornára létrehozunk egy rekordot\n      for (const channel of user.channels) {\n        if (!channel.isActive) continue;\n\n        matches.push({\n          eventId: event.id,\n          userId: user.userId,\n          eventTitle: event.title,\n          eventSummary: event.summary,\n          eventCategory: event.category,\n          channel: channel.type,\n          destination: channel.destination\n        });\n      }\n    }\n  }\n}\n\nreturn matches.map(m => ({ json: m }));"
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000005",
+      "name": "Match Events to Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition2",
+              "leftValue": "={{ $json.channel }}",
+              "rightValue": "email",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000006",
+      "name": "Is Email Channel?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1340, 220]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_USER }}",
+        "toEmail": "={{ $json.destination }}",
+        "subject": "=[Alert] {{ $json.eventCategory }}: {{ $json.eventTitle }}",
+        "emailType": "text",
+        "message": "=Hello,\n\nA new alert has been triggered based on your preferences.\n\nCategory: {{ $json.eventCategory }}\nTitle: {{ $json.eventTitle }}\n\nSummary:\n{{ $json.eventSummary }}\n\n---\nAlert System — Manage your preferences at {{ $env.WEBAPI_BASE_URL }}\nTo unsubscribe or change your preferences, log in to your account.",
+        "options": {
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000007",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 2.1,
+      "position": [1560, 140],
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $json.destination }}",
+          "mode": "name"
+        },
+        "text": "=*[{{ $json.eventCategory.toUpperCase() }}]* {{ $json.eventTitle }}\n\n{{ $json.eventSummary }}",
+        "otherOptions": {}
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000008",
+      "name": "Send Slack Message",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [1560, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Email és Slack ágból érkező adatok összegyűjtése\n// Mindkét ágból átadjuk az eventId és userId adatokat\nreturn $input.all().map(item => ({ json: item.json }));"
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000009",
+      "name": "Merge Notification Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 220]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "processed_notifications",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "event_id",
+              "fieldValue": "={{ $json.eventId }}"
+            },
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "channel",
+              "fieldValue": "={{ $json.channel }}"
+            }
+          ]
+        }
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000010",
+      "name": "Log Notification Sent",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2000, 220],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Összegyűjtjük az összes egyedi event ID-t amit feldolgoztunk\nconst allItems = $('Get Unprocessed Events').all().map(i => i.json.id);\nconst uniqueEventIds = [...new Set(allItems)];\n\nreturn uniqueEventIds.map(id => ({ json: { eventId: id } }));"
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000011",
+      "name": "Collect Processed Event IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 220]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.eventId }}"
+            }
+          ]
+        },
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "=true"
+            }
+          ]
+        }
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000012",
+      "name": "Mark Event as Processed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2440, 220],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Unprocessed Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unprocessed Events": {
+      "main": [
+        [
+          {
+            "node": "Has Events?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Events?": {
+      "main": [
+        [
+          {
+            "node": "Get User Preferences",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get User Preferences": {
+      "main": [
+        [
+          {
+            "node": "Match Events to Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Events to Users": {
+      "main": [
+        [
+          {
+            "node": "Is Email Channel?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Email Channel?": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Merge Notification Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Merge Notification Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Notification Results": {
+      "main": [
+        [
+          {
+            "node": "Log Notification Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Notification Sent": {
+      "main": [
+        [
+          {
+            "node": "Collect Processed Event IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Processed Event IDs": {
+      "main": [
+        [
+          {
+            "node": "Mark Event as Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["alert-system", "alert-dispatcher"],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

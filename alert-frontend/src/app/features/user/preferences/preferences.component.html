@@ -1,0 +1,93 @@
+<div class="preferences-container">
+  <h2>Alert Beállítások</h2>
+  <p class="subtitle">Válassza ki, milyen típusú eseményekről szeretne értesítést kapni.</p>
+
+  <!-- Add new preference form -->
+  <mat-card class="add-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>add_circle_outline</mat-icon>
+        Új preferencia hozzáadása
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="addForm" (ngSubmit)="onAdd()" class="add-form">
+        <mat-form-field appearance="outline">
+          <mat-label>Kategória</mat-label>
+          <mat-select formControlName="category" id="pref-category">
+            @for (cat of categories; track cat.value) {
+              <mat-option [value]="cat.value">{{ cat.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Kulcsszó (opcionális)</mat-label>
+          <input matInput formControlName="keyword" placeholder="pl. Hungary, bitcoin..." id="pref-keyword">
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" type="submit"
+                [disabled]="addForm.invalid || isAdding" id="pref-add-btn">
+          @if (isAdding) {
+            <mat-spinner diameter="18"></mat-spinner>
+          } @else {
+            <ng-container>
+              <mat-icon>add</mat-icon>
+              Hozzáadás
+            </ng-container>
+          }
+        </button>
+      </form>
+
+      @if (duplicateError) {
+        <div class="inline-error">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ duplicateError }}</span>
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Existing preferences -->
+  @if (isLoading) {
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  } @else if (preferences.length === 0) {
+    <div class="empty-state">
+      <mat-icon>notifications_none</mat-icon>
+      <p>Még nincs beállított preferencia</p>
+      <span>Adjon hozzá egy kategóriát a fenti form segítségével.</span>
+    </div>
+  } @else {
+    <div class="preferences-list">
+      @for (pref of preferences; track pref.id) {
+        <mat-card class="pref-card" [class.inactive]="!pref.isActive">
+          <div class="pref-content">
+            <div class="pref-info">
+              <span class="category-badge" [attr.data-category]="pref.category">
+                {{ categoryLabels[pref.category] }}
+              </span>
+              @if (pref.keyword) {
+                <span class="keyword-tag">
+                  <mat-icon>search</mat-icon>
+                  {{ pref.keyword }}
+                </span>
+              }
+            </div>
+            <div class="pref-actions">
+              <mat-slide-toggle
+                [checked]="pref.isActive"
+                (change)="onToggle(pref)"
+                color="primary">
+              </mat-slide-toggle>
+              <button mat-icon-button (click)="onDelete(pref)" class="delete-btn">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      }
+    </div>
+  }
+</div>
