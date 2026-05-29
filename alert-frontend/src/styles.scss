@@ -49,6 +49,18 @@ html, body {
   --mdc-snackbar-supporting-text-color: #e2e8f0;
 }
 
+// Fix prefix/suffix icon alignment in form fields
+.mat-mdc-form-field-icon-prefix,
+.mat-mdc-form-field-icon-suffix {
+  .mat-icon {
+    padding: 0 4px;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: #64748b;
+  }
+}
+
 // Scrollbar styling
 ::-webkit-scrollbar {
   width: 6px;

@@ -186,11 +186,14 @@ CREATE TABLE notification_channels (
 |---|---|---|
 | `user_id` | INTEGER | FK a users táblára |
 | `channel` | TEXT | `email` vagy `slack` |
-| `destination` | TEXT | Email cím VAGY Slack webhook URL |
+| `destination` | TEXT | Email cím VAGY Slack channel név (pl. `#alerts`, `@username`) |
 | `is_active` | INTEGER | Kikapcsolható csatorna |
 
 > **Miért nem egy mezőben az email és Slack?**
 > Egy usernek lehet egyszerre email ÉS Slack csatornája. A `UNIQUE(user_id, channel)` constraint biztosítja, hogy típusonként csak egy destination legyen, de mindkét típust felveheti.
+
+> **Slack bot token**
+> A Slack bot token **nem kerül az adatbázisba**. A token a WebAPI szerver konfigurációjában él (environment variable vagy `appsettings.json`). A `destination` mező csak a channel nevet tárolja (pl. `#alerts`, `@kovacs.janos`). Így egy token elegendő az összes user értesítéséhez, és a token nem kerül veszélybe ha a DB kompromittálódik.
 
 ### Indexek — SQLite
 

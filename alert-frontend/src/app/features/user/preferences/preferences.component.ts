@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -56,7 +56,8 @@ export class PreferencesComponent implements OnInit {
     private fb: FormBuilder,
     private preferenceService: PreferenceService,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private cdr: ChangeDetectorRef
   ) {
     this.addForm = this.fb.group({
       category: ['', Validators.required],
@@ -74,10 +75,12 @@ export class PreferencesComponent implements OnInit {
       next: (prefs) => {
         this.preferences = prefs;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.snackBar.open('Hiba a preferenciák betöltésekor', 'Bezár', { duration: 3000 });
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -113,8 +116,8 @@ export class PreferencesComponent implements OnInit {
   onToggle(pref: AlertPreference): void {
     this.preferenceService.toggle(pref.id).subscribe({
       next: (updated) => {
-        const idx = this.preferences.findIndex(p => p.id === pref.id);
-        if (idx !== -1) this.preferences[idx] = updated;
+        this.preferences = this.preferences.map(p => p.id === pref.id ? updated : p);
+        this.cdr.detectChanges();
       },
       error: () => {
         this.snackBar.open('Hiba történt', 'Bezár', { duration: 3000 });

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -40,7 +40,8 @@ export class ChannelsComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private channelService: ChannelService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private cdr: ChangeDetectorRef
   ) {
     this.emailForm = this.fb.group({
       destination: ['', [Validators.required, Validators.email]]
@@ -77,10 +78,12 @@ export class ChannelsComponent implements OnInit {
           this.slackForm.patchValue({ destination: slack.destination });
         }
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.snackBar.open('Hiba a csatornák betöltésekor', 'Bezár', { duration: 3000 });
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -133,9 +136,10 @@ export class ChannelsComponent implements OnInit {
   private updateChannel(channel: NotificationChannel): void {
     const idx = this.channels.findIndex(c => c.id === channel.id);
     if (idx !== -1) {
-      this.channels[idx] = channel;
+      this.channels = this.channels.map(c => c.id === channel.id ? channel : c);
     } else {
-      this.channels.push(channel);
+      this.channels = [...this.channels, channel];
     }
+    this.cdr.detectChanges();
   }
 }

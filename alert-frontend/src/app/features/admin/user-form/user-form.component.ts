@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -43,7 +43,8 @@ export class UserFormComponent implements OnInit {
     private userService: UserService,
     private route: ActivatedRoute,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -73,6 +74,7 @@ export class UserFormComponent implements OnInit {
           role: user.role
         });
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.snackBar.open('Felhasználó nem található', 'Bezár', { duration: 3000 });

@@ -74,6 +74,14 @@
 
 mat-form-field {
   margin-bottom: 0.5rem;
+
+  [matPrefix] {
+    margin-right: 8px;
+    color: #64748b;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
 }
 
 .error-banner {

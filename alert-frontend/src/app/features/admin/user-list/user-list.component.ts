@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
@@ -42,7 +42,8 @@ export class UserListComponent implements OnInit {
   constructor(
     private userService: UserService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -56,10 +57,12 @@ export class UserListComponent implements OnInit {
         this.users = users;
         this.applyFilter();
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.snackBar.open('Hiba a felhasználók betöltésekor', 'Bezár', { duration: 3000 });
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }

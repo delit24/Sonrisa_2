@@ -1,5 +1,5 @@
 {
-  "name": "alert-dispatcher",
+  "name": "Sonrisa",
   "nodes": [
     {
       "parameters": {
@@ -7,41 +7,273 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 5
+              "minutesInterval": 15
             }
           ]
         }
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000001",
+      "id": "9cb0d1e2-bc6f-45a0-8b1f-6e90f8b9ad9a",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [240, 300]
+      "position": [
+        2128,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { feedUrl: 'https://feeds.bbci.co.uk/news/rss.xml' } }];"
+      },
+      "id": "e196571a-ceb5-41ba-84d7-ab845def47ae",
+      "name": "Feed URL Lista",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2352,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "950cf43d-f05c-4f5b-9dd5-204dd29a1c81",
+      "name": "Loop Over Feeds",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2576,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.feedUrl }}",
+        "options": {}
+      },
+      "id": "d3b0e46c-0513-421a-a679-c662b265d7f6",
+      "name": "RSS Feed Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        2800,
+        1920
+      ]
     },
     {
       "parameters": {
         "operation": "getAll",
         "tableId": "events",
-        "returnAll": false,
-        "limit": 50,
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source_url",
+              "condition": "eq",
+              "keyValue": "={{ $json.link }}"
+            }
+          ]
+        }
+      },
+      "id": "73968ced-1e08-4c53-8561-353708904a26",
+      "name": "Duplicate Check",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3024,
+        1920
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "supabaseApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-new-article",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c9df863-ebe2-4c17-a560-c1b9117c5299",
+      "name": "Is New Article?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3184,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"You are a news classification assistant. Analyze the following news article and return a structured JSON response.\\n\\nArticle title: {{ $('RSS Feed Read').first().json.title }}\\nArticle content: {{ $('RSS Feed Read').first().json.contentSnippet }}\\n\\nClassify into exactly ONE category:\\n- breaking_news\\n- market\\n- natural_disaster\\n- tech\\n\\nReturn ONLY valid JSON:\\n{\\n  \\\"category\\\": \\\"breaking_news\\\",\\n  \\\"summary\\\": \\\"summary here\\\",\\n  \\\"keywords\\\": [\\\"kw1\\\", \\\"kw2\\\"],\\n  \\\"is_relevant\\\": true\\n}\"\n    }]\n  }]\n}",
+        "options": {}
+      },
+      "id": "8e176806-8314-4e64-b5ab-951fa20ea48e",
+      "name": "Gemini Flash Analyze",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3504,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst candidates = geminiResponse.candidates;\n\nif (!candidates || candidates.length === 0) {\n  throw new Error('No candidates in Gemini response');\n}\n\nconst rawText = candidates[0].content.parts[0].text;\nconst cleanText = rawText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleanText);\n} catch (e) {\n  throw new Error('Failed to parse Gemini JSON: ' + cleanText);\n}\n\nconst rssItem = $('RSS Feed Read').item.json;\nconst feedUrl = $('Feed URL Lista').item.json.feedUrl;\n\nreturn [{\n  json: {\n    ...parsed,\n    source_url: rssItem.link,\n    source_feed: feedUrl,\n    title: rssItem.title,\n    published_at: rssItem.pubDate,\n    raw_content: rssItem.contentSnippet || rssItem.content || ''\n  }\n}];"
+      },
+      "id": "1275ded6-71da-4a09-b979-57b7b00b26c8",
+      "name": "Parse Gemini Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3696,
+        1840
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-relevant",
+              "leftValue": "={{ $json.is_relevant }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a81ea4a6-d1c8-4df8-9526-5a8988b893d6",
+      "name": "Is Relevant?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3888,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "events",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "source_url",
+              "fieldValue": "={{ $json.source_url }}"
+            },
+            {
+              "fieldId": "source_feed",
+              "fieldValue": "={{ $json.source_feed }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.summary }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldId": "keywords",
+              "fieldValue": "={{ $json.keywords }}"
+            },
+            {
+              "fieldId": "published_at",
+              "fieldValue": "={{ $json.published_at }}"
+            },
+            {
+              "fieldId": "processed",
+              "fieldValue": "false"
+            },
+            {
+              "fieldId": "raw_content",
+              "fieldValue": "={{ $json.raw_content }}"
+            }
+          ]
+        }
+      },
+      "id": "76418c73-7cc2-44d2-9d30-b7ac0d962344",
+      "name": "Supabase Insert Event",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4320,
+        1616
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "supabaseApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "events",
         "filters": {
           "conditions": [
             {
               "keyName": "processed",
+              "condition": "is",
               "keyValue": "false"
             }
           ]
         }
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000002",
+      "id": "1a291fe1-3466-4e7d-8d7b-129693ed94b9",
       "name": "Get Unprocessed Events",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [460, 300],
+      "position": [
+        3520,
+        2016
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "Supabase account"
+          "name": "supabaseApi"
         }
       }
     },
@@ -69,15 +301,17 @@
         },
         "options": {}
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000003",
+      "id": "566c470d-096a-4261-84cf-095d260ac237",
       "name": "Has Events?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [680, 300]
+      "position": [
+        3824,
+        2144
+      ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{ $env.WEBAPI_BASE_URL }}/api/internal/user-preferences",
         "sendHeaders": true,
         "headerParameters": {
@@ -90,21 +324,27 @@
         },
         "options": {}
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000004",
+      "id": "4111bc62-68c0-4867-b157-43483ca168c0",
       "name": "Get User Preferences",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 220]
+      "position": [
+        4032,
+        1920
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Eventek és user preferenciák összegyűjtése\nconst events = $('Get Unprocessed Events').all().map(i => i.json);\nconst users = $('Get User Preferences').first().json;\n\nif (!Array.isArray(users) || users.length === 0) {\n  return [];\n}\n\nconst matches = [];\n\nfor (const event of events) {\n  for (const user of users) {\n    if (!user.preferences || !user.channels) continue;\n\n    for (const pref of user.preferences) {\n      // Kategória egyezés ellenőrzés\n      if (pref.category !== event.category) continue;\n\n      // Kulcsszó szűrés (ha van megadva)\n      if (pref.keyword) {\n        const keyword = pref.keyword.toLowerCase();\n        const inSummary = (event.summary || '').toLowerCase().includes(keyword);\n        const inKeywords = Array.isArray(event.keywords)\n          ? event.keywords.some(k => k.toLowerCase().includes(keyword))\n          : false;\n        const inTitle = (event.title || '').toLowerCase().includes(keyword);\n\n        if (!inSummary && !inKeywords && !inTitle) continue;\n      }\n\n      // Match! Minden aktív csatornára létrehozunk egy rekordot\n      for (const channel of user.channels) {\n        if (!channel.isActive) continue;\n\n        matches.push({\n          eventId: event.id,\n          userId: user.userId,\n          eventTitle: event.title,\n          eventSummary: event.summary,\n          eventCategory: event.category,\n          channel: channel.type,\n          destination: channel.destination\n        });\n      }\n    }\n  }\n}\n\nreturn matches.map(m => ({ json: m }));"
+        "jsCode": "const events = $('Get Unprocessed Events').all().map(i => i.json);\nconst users = $('Get User Preferences').first().json;\n\nif (!Array.isArray(users) || users.length === 0) {\n  return [];\n}\n\nconst matches = [];\n\nfor (const event of events) {\n  for (const user of users) {\n    if (!user.preferences || !user.channels) continue;\n\n    for (const pref of user.preferences) {\n      if (pref.category !== event.category) continue;\n\n      if (pref.keyword) {\n        const keyword = pref.keyword.toLowerCase();\n        const inSummary = (event.summary || '').toLowerCase().includes(keyword);\n        const inKeywords = Array.isArray(event.keywords)\n          ? event.keywords.some(k => k.toLowerCase().includes(keyword))\n          : false;\n        const inTitle = (event.title || '').toLowerCase().includes(keyword);\n\n        if (!inSummary && !inKeywords && !inTitle) continue;\n      }\n\n      for (const channel of user.channels) {\n        if (!channel.isActive) continue;\n\n        matches.push({\n          eventId: event.id,\n          userId: user.userId,\n          eventTitle: event.title,\n          eventSummary: event.summary,\n          eventCategory: event.category,\n          channel: channel.type,\n          destination: channel.destination\n        });\n      }\n    }\n  }\n}\n\nreturn matches.map(m => ({ json: m }));"
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000005",
+      "id": "a647fc75-27e4-4cb6-8089-13d306583c70",
       "name": "Match Events to Users",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 220]
+      "position": [
+        4256,
+        1840
+      ]
     },
     {
       "parameters": {
@@ -129,32 +369,36 @@
         },
         "options": {}
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000006",
+      "id": "ef0dbdbc-93c2-42f6-8468-47f4137a36fc",
       "name": "Is Email Channel?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1340, 220]
+      "position": [
+        4480,
+        1840
+      ]
     },
     {
       "parameters": {
-        "fromEmail": "={{ $env.SMTP_USER }}",
-        "toEmail": "={{ $json.destination }}",
+        "sendTo": "={{ $json.destination }}",
         "subject": "=[Alert] {{ $json.eventCategory }}: {{ $json.eventTitle }}",
         "emailType": "text",
-        "message": "=Hello,\n\nA new alert has been triggered based on your preferences.\n\nCategory: {{ $json.eventCategory }}\nTitle: {{ $json.eventTitle }}\n\nSummary:\n{{ $json.eventSummary }}\n\n---\nAlert System — Manage your preferences at {{ $env.WEBAPI_BASE_URL }}\nTo unsubscribe or change your preferences, log in to your account.",
-        "options": {
-          "allowUnauthorizedCerts": false
-        }
+        "message": "=Hello,\n\nA new alert has been triggered based on your preferences.\n\nCategory: {{ $json.eventCategory }}\nTitle: {{ $json.eventTitle }}\n\nSummary:\n{{ $json.eventSummary }}\n\n---\nAlert System",
+        "options": {}
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000007",
+      "id": "b5fa9451-5dcf-47cf-8457-cca54ce5cbd8",
       "name": "Send Email",
-      "type": "n8n-nodes-base.sendEmail",
+      "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [1560, 140],
+      "position": [
+        4704,
+        1760
+      ],
+      "webhookId": "108d1d7e-9894-4ee3-b820-4d70bd29e886",
       "credentials": {
-        "smtp": {
-          "id": "REPLACE_WITH_SMTP_CREDENTIAL_ID",
-          "name": "SMTP account"
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Gmail account"
         }
       }
     },
@@ -169,33 +413,38 @@
         "text": "=*[{{ $json.eventCategory.toUpperCase() }}]* {{ $json.eventTitle }}\n\n{{ $json.eventSummary }}",
         "otherOptions": {}
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000008",
+      "id": "49a497e8-a483-4334-8205-a064b5793ce0",
       "name": "Send Slack Message",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
-      "position": [1560, 300],
+      "position": [
+        4704,
+        1920
+      ],
+      "webhookId": "7aafc3b0-c85d-41e9-a8cf-1df995b313c5",
       "credentials": {
         "slackApi": {
-          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
           "name": "Slack account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Email és Slack ágból érkező adatok összegyűjtése\n// Mindkét ágból átadjuk az eventId és userId adatokat\nreturn $input.all().map(item => ({ json: item.json }));"
+        "jsCode": "return $input.all().map(item => ({ json: item.json }));"
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000009",
+      "id": "03303316-efb2-4a5d-9366-93b4ce7ae3a9",
       "name": "Merge Notification Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1780, 220]
+      "position": [
+        4928,
+        1840
+      ]
     },
     {
       "parameters": {
-        "operation": "create",
         "tableId": "processed_notifications",
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -213,27 +462,33 @@
           ]
         }
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000010",
+      "id": "2f7300b1-43c1-4e86-9a66-678628955413",
       "name": "Log Notification Sent",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [2000, 220],
+      "position": [
+        5136,
+        1840
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "Supabase account"
+          "name": "supabaseApi"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Összegyűjtjük az összes egyedi event ID-t amit feldolgoztunk\nconst allItems = $('Get Unprocessed Events').all().map(i => i.json.id);\nconst uniqueEventIds = [...new Set(allItems)];\n\nreturn uniqueEventIds.map(id => ({ json: { eventId: id } }));"
+        "jsCode": "const allItems = $('Get Unprocessed Events').all().map(i => i.json.id);\nconst uniqueEventIds = [...new Set(allItems)];\nreturn uniqueEventIds.map(id => ({ json: { eventId: id } }));"
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000011",
+      "id": "5e1f9d4e-ec63-44a3-983b-01348b5423e0",
       "name": "Collect Processed Event IDs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2220, 220]
+      "position": [
+        5376,
+        1840
+      ]
     },
     {
       "parameters": {
@@ -247,35 +502,164 @@
             }
           ]
         },
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
               "fieldId": "processed",
-              "fieldValue": "=true"
+              "fieldValue": "true"
             }
           ]
         }
       },
-      "id": "b2c3d4e5-0002-0002-0002-000000000012",
+      "id": "9a992308-8d56-47e1-ab54-3be485fac240",
       "name": "Mark Event as Processed",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [2440, 220],
+      "position": [
+        5584,
+        1840
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "Supabase account"
+          "name": "supabaseApi"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Csak az els\u0151 3 cikket engedj\u00fck tov\u00e1bb tesztel\u00e9shez\nreturn $input.all().slice(0, 3).map(item => ({ json: item.json }));"
+      },
+      "id": "239750fd-a824-4f79-bac5-21a417a54e1d",
+      "name": "Limit 3 cikk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        1504
+      ]
     }
   ],
+  "pinData": {},
   "connections": {
     "Schedule Trigger": {
       "main": [
         [
           {
+            "node": "Feed URL Lista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feed URL Lista": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Feeds": {
+      "main": [
+        [
+          {
             "node": "Get Unprocessed Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RSS Feed Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Feed Read": {
+      "main": [
+        [
+          {
+            "node": "Limit 3 cikk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Check": {
+      "main": [
+        [
+          {
+            "node": "Is New Article?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Article?": {
+      "main": [
+        [
+          {
+            "node": "Gemini Flash Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Flash Analyze": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response": {
+      "main": [
+        [
+          {
+            "node": "Is Relevant?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Relevant?": {
+      "main": [
+        [
+          {
+            "node": "Supabase Insert Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Insert Event": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Feeds",
             "type": "main",
             "index": 0
           }
@@ -301,8 +685,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Get User Preferences": {
@@ -399,17 +782,28 @@
           }
         ]
       ]
+    },
+    "Limit 3 cikk": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "active": false,
   "settings": {
     "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": ""
+    "availableInMCP": false
   },
-  "staticData": null,
-  "tags": ["alert-system", "alert-dispatcher"],
-  "triggerCount": 1,
-  "updatedAt": "2024-01-01T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "fb10bdf7-70e5-4c56-a426-0d660b8442c7",
+  "meta": {
+    "instanceId": "REPLACE_WITH_INSTANCE_ID"
+  },
+  "id": "REPLACE_WITH_WORKFLOW_ID",
+  "tags": []
 }

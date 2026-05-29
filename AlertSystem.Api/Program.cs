@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using AlertSystem.Api.Data;
 using AlertSystem.Api.Middleware;
 using AlertSystem.Api.Models.Entities;
@@ -53,14 +54,47 @@ builder.Services.AddCors(options =>
     });
 });
 
-// --- Controllers & OpenAPI ---
+// --- Controllers & Swagger / OpenAPI ---
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Alert System API",
+        Version = "v1",
+        Description = "REST API for the Alert System (authentication, users, preferences, channels)."
+    });
+
+    // JWT Bearer authentication support in the Swagger UI
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your JWT token. The 'Bearer ' prefix is added automatically."
+    });
+
+    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer")] = new List<string>()
+    });
+});
 
 var app = builder.Build();
 
 // --- Middleware Pipeline ---
-app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Alert System API v1");
+        options.RoutePrefix = "swagger";
+    });
+}
 
 app.UseCors("Frontend");
 
