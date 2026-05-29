@@ -1,0 +1,255 @@
+# Prompt History — Alert System Project
+
+## Context
+
+This document captures the key prompts and decision points used throughout the development of a world events alert system. The architecture, technology choices, and design decisions were made by the project owner, with AI assistance used for implementation details and documentation.
+
+---
+
+## Phase 1: Brief Interpretation & Architecture Planning
+
+**Prompt:**
+> "I've received this product brief. Read it and tell me how you interpret it, and what open questions we need to discuss before breaking it down into tasks."
+>
+> Brief: *"We want users to be able to set up alerts so they get notified when something important happens in the world — like breaking news, market movements, natural disasters, that kind of thing. Should work for both email and Slack. Make it flexible enough that we can add more channels later. We need an admin view too."*
+
+**Key decisions made by project owner:**
+- Use n8n as the processing engine — chosen for its visual workflow approach, native Slack/Email nodes, and extensibility without code changes
+- Use RSS feeds as the data source — practical and immediately testable
+- Use Gemini Flash (later switched to Groq) for AI classification — chosen for speed and structured JSON output
+- Use Supabase for event storage — managed PostgreSQL with REST API accessible directly from n8n
+- Use .NET WebAPI for user management — familiar stack, clean separation of concerns
+- Use SQLite for user data — sufficient for MVP, easily migratable later
+- Use Angular for frontend — two roles (admin + user) with route guards
+
+---
+
+## Phase 2: Alert Logic Design
+
+**Prompt:**
+> "What alert trigger logic would you recommend? Keyword-based, category-based, or both?"
+
+**Decision made by project owner:**
+- **Combined approach (Category + optional Keyword)**
+- Category is mandatory (breaking_news, market, natural_disaster, tech)
+- Keyword is optional — simple string match for MVP, not regex or AI matching
+- Rationale: category alone is too broad, keyword alone requires users to predict exact wording
+
+**Example:**
+```
+Category: Natural Disaster
+Keyword: Hungary
+→ Only notifies about natural disasters in Hungary
+```
+
+---
+
+## Phase 3: Notification Channel Design
+
+**Prompt:**
+> "For Slack notifications — should we use a per-user webhook URL, or a single bot token?"
+
+**Decision made by project owner:**
+- **Single bot token approach**
+- Users provide only a channel name (#alerts, @username)
+- Bot token stored server-side in configuration, never in the database
+- Rationale: simpler UX, lower risk, no per-user Slack app configuration required
+- OAuth flow deferred to post-MVP
+
+**Prompt:**
+> "For email — SMTP or OAuth?"
+- **Decision: Gmail OAuth2** via n8n's Gmail node
+- SMTP considered but rejected due to n8n Cloud compatibility issues
+
+---
+
+## Phase 4: Database Architecture
+
+**Prompt:**
+> "Design the database schema for both Supabase and SQLite, with the decisions we've made."
+
+**Key decisions made by project owner:**
+- Two separate databases for two separate concerns
+- Supabase: event store only (high volume, written by n8n)
+- SQLite: user store only (low volume, managed by WebAPI)
+- `processed_notifications` table in Supabase for deduplication
+- Soft delete for users (is_active flag, not hard delete)
+- Category values as string enum, consistent across both databases
+
+**Supabase tables:**
+- `events` — processed news items with category, keywords, summary
+- `processed_notifications` — tracks which user received which notification on which channel
+
+**SQLite tables:**
+- `users` — auth, roles (admin/user)
+- `alert_preferences` — category + optional keyword per user
+- `notification_channels` — email address or Slack channel name per user
+
+---
+
+## Phase 5: n8n Workflow Design
+
+**Prompt:**
+> "Design the n8n workflow. Should it be one workflow or two?"
+
+**Decision made by project owner:**
+- **Single workflow** — simpler to manage, monitor, and debug for MVP
+- Two-workflow approach considered but rejected (over-engineering for MVP scope)
+
+**Workflow structure decided by project owner:**
+```
+Schedule Trigger (15 min)
+→ Feed URL Lista (configurable RSS list)
+→ Loop Over Feeds
+→ RSS Feed Read
+→ Limit (3 articles for testing)
+→ Duplicate Check (Supabase)
+→ Is New Article? (IF node)
+→ AI Analysis (Groq/Llama)
+→ Parse Response
+→ Is Relevant? (IF node)
+→ Supabase Insert
+→ Get Unprocessed Events
+→ Get User Preferences (WebAPI)
+→ Match Events to Users (Code node)
+→ Is Email Channel? (IF node)
+→ Send Email / Send Slack Message
+→ Merge Results
+→ Log Notification Sent
+→ Collect Processed Event IDs
+→ Mark Event as Processed
+```
+
+**Prompt:**
+> "Write the Groq/AI prompt for news classification."
+
+**Decisions made by project owner:**
+- Four fixed categories only: breaking_news, market, natural_disaster, tech
+- `is_relevant` flag to filter opinion pieces and advertisements
+- Max 5 keywords extracted
+- Max 3 sentence summary in English
+- Return strict JSON only, no markdown
+
+---
+
+## Phase 6: Backend API Design
+
+**Prompt:**
+> "Design the .NET WebAPI endpoints, auth, and internal API structure."
+
+**Key decisions made by project owner:**
+- JWT authentication for frontend (Angular)
+- Separate API key authentication for internal n8n endpoint
+- Internal endpoint not exposed via JWT — completely separate auth layer
+- Soft delete only (PATCH deactivate, not DELETE)
+- No Supabase connection from WebAPI — WebAPI only touches SQLite
+
+**Internal endpoint for n8n:**
+```
+GET /api/internal/user-preferences
+Header: x-api-key: [configured value]
+```
+
+**Response format decided by project owner:**
+```json
+[
+  {
+    "userId": 1,
+    "preferences": [
+      { "category": "breaking_news", "keyword": "Iran" }
+    ],
+    "channels": [
+      { "type": "email", "destination": "user@example.com", "isActive": true }
+    ]
+  }
+]
+```
+
+---
+
+## Phase 7: Frontend Design
+
+**Prompt:**
+> "Design the Angular frontend structure. One app or two? NgRx or simpler state?"
+
+**Decisions made by project owner:**
+- **Single Angular app** with route guards — simpler than two separate apps
+- **BehaviorSubject** for auth state — NgRx rejected as over-engineering for MVP
+- **Standalone components** — Angular 17+ modern approach
+- **Role-based redirect after login** — admin → /admin, user → /dashboard
+- **Angular Material** for UI components
+
+---
+
+## Phase 8: AI Provider Switch
+
+**Prompt:**
+> "The Gemini API credits are depleted and prepay top-up is required. What alternatives exist?"
+
+**Decision made by project owner:**
+- Switch to **Groq API** (llama-3.1-8b-instant)
+- Rationale: completely free tier, no card required, OpenAI-compatible API, fast inference
+- n8n node updated to HTTP Request with raw JSON body and Bearer auth header
+- Parse node updated to handle Groq response format (`choices[0].message.content`)
+
+---
+
+## Phase 9: Integration & Testing
+
+**Prompt:**
+> "The Match Events to Users code node returns no output. Debug it."
+
+**Root cause identified:**
+- `$('Get Unprocessed Events').all()` was returning empty because the node reference was broken after workflow restructuring
+- Fixed by referencing the correct node name and verifying data flow
+
+**Prompt:**
+> "The same email was sent 24 times. Why?"
+
+**Root cause identified:**
+- `processed = true` was not being set because `Collect Processed Event IDs` was referencing `Get Unprocessed Events` instead of `Log Notification Sent`
+- Fixed by updating the code node to pull event IDs from the log output
+
+---
+
+## Phase 10: Security Review
+
+**Prompt:**
+> "API keys were shared in this conversation. What's the risk and what should I do?"
+
+**Assessment and actions taken by project owner:**
+- Groq API key: low risk (no card attached) → rotate
+- Gemini API key: low risk ($0 balance) → delete
+- Gmail OAuth: medium risk (secondary email account) → revoke and re-authenticate
+- Slack bot token: low risk (chat:write scope only, no read access) → optional rotate
+- Supabase service_role key: critical in production, acceptable for test environment with no sensitive data
+
+---
+
+## Key Architecture Decisions Summary
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Processing engine | n8n | Visual, extensible, native integrations |
+| AI provider | Groq / Llama 3.1 | Free, fast, OpenAI-compatible |
+| Event store | Supabase | Managed PostgreSQL, REST API |
+| User store | SQLite | Simple, sufficient for MVP |
+| Backend | .NET WebAPI | Clean separation, familiar stack |
+| Frontend | Angular (single app) | Route guards, two roles |
+| Alert logic | Category + optional keyword | Balance between precision and usability |
+| Slack auth | Single bot token | Simpler UX, lower risk |
+| Workflow structure | Single n8n workflow | Simpler for MVP |
+| State management | BehaviorSubject | Appropriate complexity for scope |
+| Deduplication | Two-level (URL + notification) | Prevents both duplicate storage and duplicate alerts |
+
+---
+
+## What Was Deliberately Deferred (Post-MVP)
+
+- Slack OAuth per-user flow
+- SQLite → PostgreSQL migration
+- RSS feed management via admin UI
+- News history view on frontend
+- Rate limiting on WebAPI
+- Multi-tenant Slack workspace support
+- Additional notification channels (Teams, Telegram, webhook)
