@@ -6,6 +6,12 @@ Ennél a feladatnál, is nagyon figyelmesen és aprólékosan kellett haladni , 
 
 Nyilván ez egy teszt rendszer, ígynme bajlódtam még azzal is hogy környezeti változókba rakom amit oda kell meg külön branch meg ilyenek, de természetesen ezek a dolgok egy éles projekten alap...
 
+Az egész alkalmazás nálam összerekva fut, amit be is tudok mutatni, nyilván az n8n json ben lévő kulcsok  a felpusholt verzióban értelem szerűen nicsnenek benne.
+
+I received the alternative assignment from Sonrisa because, in the first round, I didn't get my actual assessment task (although I was able to complete that one as well). For this task, I had to proceed very carefully and meticulously to build a meaningful and fully functional model. Obviously, since this is a test system, I didn't bother with setting up environment variables for everything or using separate branches, but naturally, these practices are absolute baseline requirements in a live production project.
+
+The entire application is fully assembled and running on my machine, which I can also demonstrate. Naturally, the API keys and credentials in the n8n JSON file have been deliberately excluded from the pushed version.
+
 Az infrastruktura és az app:
 
 Áttekintés
